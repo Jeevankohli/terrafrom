@@ -1,0 +1,103 @@
+terraform.tfvars
+----------------
+vpc_cidr = "10.10.10.0/24"
+instance_type = "t2.micro"
+region = "us-west-1"
+acess_key = "AKIARWSB5T2DUXVESW6F"
+secret_key = "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"
+subnet_cidr = "10.10.10.0/26"
+all_traffic_cidr = "0.0.0.0/0"
+avaliability_zone = "us-west-1b"
+security_name = "my-security"
+ami = "ami-04d1dcfb793f6fa37"
+instance_count = 2
+public_ip = true
+key_name = "Docker"
+
+-------------------------------------------------------------
+Main.tf
+--------------------------------------------------------------
+provider "aws" {
+  region = var.region
+  access_key = var.acess_key
+  secret_key = var.secret_key
+}
+
+variable "vpc_cidr" {}
+variable "region" {}
+variable "acess_key" {}
+variable "secret_key" {}
+variable "instance_type" {}
+variable "subnet_cidr" {}
+variable "avaliability_zone" {}
+variable "all_traffic_cidr" {}
+variable "security_name" {}
+variable "ami" {}
+variable "instance_count" {}
+variable "public_ip" {}
+variable "key_name" {}
+
+resource "aws_vpc" "my-vpc" {
+  cidr_block = var.vpc_cidr
+  tags = {
+    Name = "my-vpc"
+  }
+}
+
+resource "aws_subnet" "subnet1" {
+  vpc_id = aws_vpc.my-vpc.id
+  cidr_block = var.subnet_cidr
+  availability_zone = var.avaliability_zone
+  tags = {
+    Name ="subnet1"
+  }
+}
+
+resource "aws_internet_gateway" "my-gatway" {
+  vpc_id = aws_vpc.my-vpc.id
+  tags = {
+    Name = "my-gateway"
+  }
+}
+
+resource "aws_route_table" "my-route-table" {
+  vpc_id = aws_vpc.my-vpc.id
+  route {
+    cidr_block = var.all_traffic_cidr
+    gateway_id = aws_internet_gateway.my-gatway.id
+  }
+  tags = {
+    Name = "my-route-table"
+  }
+}
+
+resource "aws_security_group" "my-security" {
+  name = var.security_name
+  vpc_id = aws_vpc.my-vpc.id
+  ingress {
+    from_port = 0
+    protocol  = "-1"
+    to_port   = 0
+  }
+  egress {
+    from_port = 0
+    protocol  = "-1"
+    to_port   = 0
+  }
+}
+
+resource "aws_route_table_association" "my-association" {
+  route_table_id = aws_route_table.my-route-table.id
+  subnet_id = aws_subnet.subnet1.id
+}
+resource "aws_instance" "my-instance" {
+  ami = var.ami
+  instance_type = var.instance_type
+  count = var.instance_count
+  availability_zone = var.avaliability_zone
+  subnet_id = aws_subnet.subnet1.id
+  vpc_security_group_ids = [aws_security_group.my-security.id]
+  associate_public_ip_address = var.public_ip
+  key_name = var.key_name
+}
+
